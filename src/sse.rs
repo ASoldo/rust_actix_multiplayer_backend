@@ -1,32 +1,29 @@
+// src/sse.rs
+
 use actix_web::{HttpRequest, HttpResponse, Responder};
-use async_stream::try_stream;
 use bytes::Bytes;
-use futures_core::stream::Stream;
-use std::io;
+use futures_util::stream::{StreamExt, unfold};
 use std::time::Duration;
-use tokio::time::interval;
-
-/// Returns a stream of `Result<Bytes, io::Error>`
-fn my_sse_stream() -> impl Stream<Item = Result<Bytes, io::Error>> {
-    try_stream! {
-        let mut counter = 0;
-        let mut ticker = interval(Duration::from_secs(2));
-
-        loop {
-            ticker.tick().await;
-            let data = format!("data: {}\n\n", counter);
-            counter += 1;
-
-            // Yields Ok(Bytes) because it's a "try_stream!"
-            yield Bytes::from(data);
-        }
-    }
-}
+use tokio::time::sleep;
 
 pub async fn sse_endpoint(_req: HttpRequest) -> impl Responder {
-    let stream = my_sse_stream();
+    // We start counting from 0 and increment each iteration
+    let s = unfold(0, move |mut counter| async move {
+        // Wait 2 seconds
+        sleep(Duration::from_secs(2)).await;
 
+        // Build SSE-formatted string
+        let msg = format!("data: {}\n\n", counter);
+        counter += 1;
+
+        // The unfold returns (Item, NextState)
+        // Item must be `Result<Bytes, std::io::Error>` so Actix can handle it
+        let item = Ok::<Bytes, std::io::Error>(Bytes::from(msg));
+        Some((item, counter))
+    });
+
+    // The `streaming` method expects `Stream<Item=Result<Bytes,E>>`
     HttpResponse::Ok()
         .content_type("text/event-stream")
-        .streaming(stream)
+        .streaming(s)
 }
