@@ -132,7 +132,7 @@ Login:
 ```sh
 curl -X POST http://127.0.0.1:8080/login \
      -H "Content-Type: application/json" \
-     -d '{"email":"rootster@example.com","password":"ToorToor"}'
+     -d '{"email":"rootster@example.com","password":"Password"}'
 ```
 
 Returns {"access_token":"<short-lived-JWT>","refresh_token":"<long-string>", "user": {...}}
