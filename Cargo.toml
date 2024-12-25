@@ -1,0 +1,19 @@
+[package]
+name = "rust-actix-multiplayer-backend"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+actix = "0.13.5"
+actix-web = "4.9.0"
+actix-web-actors = "4.3.1"
+async-stream = "0.3.6"
+bytes = "1.9.0"
+env_logger = "0.11.6"
+futures-core = "0.3.31"
+futures-util = "0.3.31"
+log = "0.4.22"
+serde = { version = "1.0.216", features = ["derive"] }
+serde_json = "1.0.134"
+tokio = { version = "1.42.0", features = ["rt-multi-thread", "macros"] }
+uuid = { version = "1.11.0", features = ["v4", "serde"] }
