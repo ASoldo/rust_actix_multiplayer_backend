@@ -14,15 +14,3 @@ pub struct User {
     pub password: String,
     pub created_at: DateTime<Utc>,
 }
-
-impl User {
-    pub fn new(username: String, email: String) -> Self {
-        Self {
-            id: Uuid::new_v4(),
-            username,
-            email,
-            password: String::new(),
-            created_at: Utc::now(),
-        }
-    }
-}

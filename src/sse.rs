@@ -2,7 +2,7 @@
 
 use actix_web::{HttpRequest, HttpResponse, Responder};
 use bytes::Bytes;
-use futures_util::stream::{StreamExt, unfold};
+use futures_util::stream::unfold;
 use std::time::Duration;
 use tokio::time::sleep;
 
