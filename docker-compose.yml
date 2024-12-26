@@ -1,0 +1,45 @@
+services:
+  db:
+    image: postgres:16.6
+    container_name: multiplayer_db
+    environment:
+      - POSTGRES_USER=admin
+      - POSTGRES_PASSWORD=admin
+      - POSTGRES_DB=multiplayer_demo
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "pg_isready",
+          "-U",
+          "admin",
+          "-d",
+          "multiplayer_demo",
+          "-h",
+          "localhost",
+          "-p",
+          "5432",
+        ]
+      interval: 5s
+      retries: 5
+
+  rust-backend:
+    build: .
+    container_name: rust_actix_backend
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    environment:
+      - DATABASE_URL=postgres://admin:admin@db:5432/multiplayer_demo
+      - JWT_SECRET=MySuperSecretKey
+      - RUST_LOG=info
+
+volumes:
+  pgdata:
