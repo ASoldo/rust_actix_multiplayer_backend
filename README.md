@@ -123,7 +123,7 @@ Register:
 ```sh
 curl -X POST http://127.0.0.1:8080/register \
      -H "Content-Type: application/json" \
-     -d '{"username":"rootster","email":"rootster@example.com","password":"ToorToor"}'
+     -- '{"username":"rootster","email":"rootster@example.com","password":"ToorToor"}'
 ```
 
 Returns {"token":"<JWT>", "user": {...}}
