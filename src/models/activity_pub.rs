@@ -1,3 +1,4 @@
+use crate::services::simulator_service::Fleet;
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize)]
@@ -23,9 +24,11 @@ pub struct PublicKey {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Activity {
     #[serde(rename = "type")]
-    pub activity_type: String, // Activity type (e.g., "Create", "Follow", "Message")
+    pub activity_type: String, // Activity type (e.g., "BattleRequest", "Message")
     pub actor: String,           // Actor who performed the activity
     pub object: String,          // Target object of the activity
-    pub to: Option<Vec<String>>, // Optional recipients (e.g., public, specific actors)
-    pub content: Option<String>, // Optional description of the activity
+    pub to: Option<Vec<String>>, // Optional recipients
+    pub content: Option<String>, // Optional content for the activity
+    pub fleet: Option<Fleet>,    // Optional fleet information for BattleRequest
+    pub seed: Option<u64>,       // Optional seed for BattleRequest
 }

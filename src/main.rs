@@ -31,9 +31,15 @@ async fn main() -> std::io::Result<()> {
             // SSE + WebSockets
             .route("/sse", web::get().to(services::sse::sse_endpoint))
             .route("/ws/", web::get().to(services::websocket::ws_index))
+            // .route("/actor/{username}/inbox", web::post().to(inbox))
+            // .route("/actor/{username}/outbox", web::get().to(outbox))
             .route("/actor/{username}/inbox", web::post().to(inbox))
             .route("/actor/{username}/outbox", web::get().to(outbox))
             .route("/.well-known/webfinger", web::get().to(webfinger))
+            .route(
+                "/battle-request/",
+                web::post().to(services::simulator_service::send_battle_request_handler),
+            )
     })
     // .bind(("127.0.0.1", 8080))?
     .bind(("0.0.0.0", 8080))?

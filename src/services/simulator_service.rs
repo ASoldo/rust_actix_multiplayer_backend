@@ -2,16 +2,37 @@ use actix_web::{HttpResponse, Responder, web};
 use rand::Rng;
 use rand::SeedableRng;
 use rand_pcg::Pcg64;
+use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 
-#[derive(Deserialize, Serialize, Clone, sqlx::FromRow)]
+#[derive(Debug, Serialize, Deserialize)]
+pub struct BattleRequestActivity {
+    #[serde(rename = "type")]
+    pub activity_type: String,
+    pub actor: String,
+    pub target: String,
+    pub fleet: Fleet,
+    pub seed: u64,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct BattleResultActivity {
+    #[serde(rename = "type")]
+    pub activity_type: String,
+    pub actor: String,
+    pub target: String,
+    pub result: BattleOutcome,
+}
+
+#[derive(Default, Debug, Deserialize, Serialize, Clone, sqlx::FromRow)]
 pub struct Fleet {
     ships: Option<i32>,
     fighters: Option<i32>,
     bombers: Option<i32>,
 }
 
+#[derive(Debug, Deserialize, Serialize)]
 pub struct BattleOutcome {
     winner: String,
     player_a_remaining: Fleet,
@@ -153,6 +174,38 @@ pub async fn battle_handler(
     // Simulate the battle
     let outcome = simulate_battle(player_a_fleet, player_b_fleet, req.seed);
 
+    // Update fleets for Player A
+    sqlx::query!(
+        r#"
+        UPDATE fleets
+        SET ships = $1, fighters = $2, bombers = $3
+        WHERE user_id = (SELECT id FROM users WHERE username = $4)
+        "#,
+        outcome.player_a_remaining.ships,
+        outcome.player_a_remaining.fighters,
+        outcome.player_a_remaining.bombers,
+        req.player_a
+    )
+    .execute(pool.get_ref())
+    .await
+    .expect("Failed to update Player A's fleet");
+
+    // Update fleets for Player B
+    sqlx::query!(
+        r#"
+        UPDATE fleets
+        SET ships = $1, fighters = $2, bombers = $3
+        WHERE user_id = (SELECT id FROM users WHERE username = $4)
+        "#,
+        outcome.player_b_remaining.ships,
+        outcome.player_b_remaining.fighters,
+        outcome.player_b_remaining.bombers,
+        req.player_b
+    )
+    .execute(pool.get_ref())
+    .await
+    .expect("Failed to update Player B's fleet");
+
     let response = BattleResponse {
         winner: outcome.winner,
         player_a_remaining: outcome.player_a_remaining,
@@ -164,4 +217,167 @@ pub async fn battle_handler(
 
 pub fn config(cfg: &mut web::ServiceConfig) {
     cfg.route("/simulate_battle", web::post().to(battle_handler));
+}
+
+pub async fn handle_battle_request(
+    activity: web::Json<BattleRequestActivity>,
+    pool: web::Data<PgPool>,
+) -> Result<HttpResponse, actix_web::Error> {
+    // Fetch actor's fleet
+    let actor_fleet = sqlx::query_as!(
+        Fleet,
+        "SELECT ships, fighters, bombers 
+         FROM fleets 
+         WHERE user_id = (SELECT id FROM users WHERE username = $1)",
+        activity.actor
+    )
+    .fetch_one(pool.get_ref())
+    .await;
+
+    if actor_fleet.is_err() {
+        return Ok(HttpResponse::BadRequest().body("Actor fleet not found"));
+    }
+    let actor_fleet = actor_fleet.unwrap();
+
+    // Fetch target's fleet
+    let target_fleet = sqlx::query_as!(
+        Fleet,
+        "SELECT ships, fighters, bombers 
+         FROM fleets 
+         WHERE user_id = (SELECT id FROM users WHERE username = $1)",
+        activity.target
+    )
+    .fetch_one(pool.get_ref())
+    .await;
+
+    if target_fleet.is_err() {
+        return Ok(HttpResponse::BadRequest().body("Target fleet not found"));
+    }
+    let target_fleet = target_fleet.unwrap();
+
+    // Simulate the battle
+    let outcome = simulate_battle(actor_fleet.clone(), target_fleet.clone(), activity.seed);
+
+    // Update actor's fleet
+    sqlx::query!(
+        "UPDATE fleets 
+         SET ships = $1, fighters = $2, bombers = $3 
+         WHERE user_id = (SELECT id FROM users WHERE username = $4)",
+        outcome.player_a_remaining.ships,
+        outcome.player_a_remaining.fighters,
+        outcome.player_a_remaining.bombers,
+        activity.actor
+    )
+    .execute(pool.get_ref())
+    .await
+    .map_err(|e| {
+        eprintln!("Failed to update actor fleet: {:?}", e);
+        actix_web::error::ErrorInternalServerError("Failed to update actor fleet")
+    })?;
+
+    // Update target's fleet
+    sqlx::query!(
+        "UPDATE fleets 
+         SET ships = $1, fighters = $2, bombers = $3 
+         WHERE user_id = (SELECT id FROM users WHERE username = $4)",
+        outcome.player_b_remaining.ships,
+        outcome.player_b_remaining.fighters,
+        outcome.player_b_remaining.bombers,
+        activity.target
+    )
+    .execute(pool.get_ref())
+    .await
+    .map_err(|e| {
+        eprintln!("Failed to update target fleet: {:?}", e);
+        actix_web::error::ErrorInternalServerError("Failed to update target fleet")
+    })?;
+
+    // Return battle result
+    Ok(HttpResponse::Ok().json(outcome))
+}
+
+async fn update_fleet(username: String, updated_fleet: Fleet, pool: web::Data<PgPool>) {
+    sqlx::query!(
+        "UPDATE fleets SET ships = $1, fighters = $2, bombers = $3 WHERE user_id = (SELECT id FROM users WHERE username = $4)",
+        updated_fleet.ships,
+        updated_fleet.fighters,
+        updated_fleet.bombers,
+        username
+    )
+    .execute(pool.get_ref())
+    .await
+    .expect("Failed to update fleet");
+}
+
+async fn send_activity(
+    activity: BattleResultActivity,
+    target_inbox: &str,
+) -> Result<(), reqwest::Error> {
+    let client = Client::new();
+    client
+        .post(format!("{}/inbox", target_inbox))
+        .header("Content-Type", "application/activity+json")
+        .json(&activity)
+        .send()
+        .await?;
+    Ok(())
+}
+
+pub async fn send_battle_request(
+    activity: BattleRequestActivity,
+    target_inbox: &str,
+) -> Result<(), reqwest::Error> {
+    let client = Client::new();
+    client
+        .post(target_inbox)
+        .header("Content-Type", "application/activity+json")
+        .json(&activity)
+        .send()
+        .await?;
+    Ok(())
+}
+
+pub async fn send_battle_request_handler(
+    activity: web::Json<BattleRequestActivity>,
+    pool: web::Data<PgPool>,
+) -> impl Responder {
+    // Fetch the actor's fleet from the database
+    let actor_fleet = sqlx::query_as!(
+        Fleet,
+        "SELECT ships, fighters, bombers 
+         FROM fleets 
+         WHERE user_id = (SELECT id FROM users WHERE username = $1)",
+        activity.actor
+    )
+    .fetch_one(pool.get_ref())
+    .await;
+
+    if actor_fleet.is_err() {
+        return HttpResponse::BadRequest().body("Actor fleet not found");
+    }
+
+    let actor_fleet = actor_fleet.unwrap();
+
+    // Construct the activity with the fleet from the database
+    let battle_request = BattleRequestActivity {
+        activity_type: activity.activity_type.clone(),
+        actor: activity.actor.clone(),
+        target: activity.target.clone(),
+        fleet: actor_fleet,
+        seed: activity.seed,
+    };
+
+    // Send the battle request to the target inbox
+    let target_inbox = format!(
+        "http://127.0.0.1:8080/actor/{}@localhost/inbox",
+        activity.target
+    );
+
+    match send_battle_request(battle_request, &target_inbox).await {
+        Ok(_) => HttpResponse::Ok().body("Battle request sent successfully"),
+        Err(e) => {
+            eprintln!("Error sending battle request: {:?}", e);
+            HttpResponse::InternalServerError().body("Failed to send battle request")
+        }
+    }
 }
