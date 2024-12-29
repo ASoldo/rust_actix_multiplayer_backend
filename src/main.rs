@@ -33,6 +33,10 @@ async fn main() -> std::io::Result<()> {
             .route("/ws/", web::get().to(handlers::websocket::ws_index))
             // .route("/actor/{username}/inbox", web::post().to(inbox))
             // .route("/actor/{username}/outbox", web::get().to(outbox))
+            .route(
+                "/actor/{username}",
+                web::get().to(handlers::activity_pub::get_actor),
+            )
             .route("/actor/{username}/inbox", web::post().to(inbox))
             .route("/actor/{username}/outbox", web::get().to(outbox))
             .route("/.well-known/webfinger", web::get().to(webfinger))

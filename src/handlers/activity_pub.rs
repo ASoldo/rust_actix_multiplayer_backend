@@ -3,7 +3,7 @@ use std::fmt::Debug;
 use crate::handlers::simulator::{BattleRequestActivity, handle_battle_request};
 use crate::models::activity_pub::Activity;
 use actix_web::{HttpResponse, Responder, web};
-use reqwest::Client;
+use serde_json::json;
 use sqlx::PgPool;
 
 use serde::{Deserialize, Serialize};
@@ -14,6 +14,36 @@ struct SentMessage {
     content: String,
     created_at: Option<String>, // Store the formatted date as a string
     activity_type: String,
+}
+
+pub async fn get_actor(username: web::Path<String>, pool: web::Data<PgPool>) -> impl Responder {
+    let actor = sqlx::query!(
+        "SELECT username FROM users WHERE username = $1",
+        username.into_inner()
+    )
+    .fetch_optional(pool.get_ref())
+    .await;
+
+    if let Ok(Some(user)) = actor {
+        HttpResponse::Ok().json(json!({
+            "@context": "https://www.w3.org/ns/activitystreams",
+            "id": format!("http://localhost/actor/{}", user.username),
+            "type": "Person",
+            "preferredUsername": user.username,
+            "name": user.username,
+            "inbox": format!("http://localhost/actor/{}/inbox", user.username),
+            "outbox": format!("http://localhost/actor/{}/outbox", user.username),
+            "followers": format!("http://localhost/actor/{}/followers", user.username),
+            "following": format!("http://localhost/actor/{}/following", user.username),
+            "publicKey": {
+                "id": format!("http://localhost/actor/{}#main-key", user.username),
+                "owner": format!("http://localhost/actor/{}", user.username),
+                "publicKeyPem": "-----BEGIN PUBLIC KEY-----\n...\n-----END PUBLIC KEY-----"
+            }
+        }))
+    } else {
+        HttpResponse::NotFound().finish()
+    }
 }
 
 pub async fn inbox(
