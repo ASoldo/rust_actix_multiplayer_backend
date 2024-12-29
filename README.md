@@ -6,29 +6,9 @@ This project is a **Rust** + **Actix-Web** backend that demonstrates:
 - **Argon2** password hashing for secure password storage
 - **JWT-based** authentication (short-lived **access tokens** + optional **refresh tokens**)
 - **SSE** (Server-Sent Events) for real-time streaming
-- Basic routes: `/register`, `/login`, `/me`, `/refresh`, `/sse`
+- Core functionality for multiplayer game interactions
 
----
-
-## Table of Contents
-
-1. [Prerequisites](#prerequisites)
-2. [Project Setup](#project-setup)
-3. [Environment Variables](#environment-variables)
-4. [Running Migrations](#running-migrations)
-5. [Building & Running](#building--running)
-6. [Endpoints & Usage](#endpoints--usage)
-   - [Register](#register)
-   - [Login](#login)
-   - [Get Current User (`/me`)](#get-current-user-me)
-   - [Refresh Token](#refresh-token)
-   - [SSE](#sse)
-7. [Example Curl Commands](#example-curl-commands)
-8. [Tips & Next Steps](#tips--next-steps)
-
----
-
-## 1. Prerequisites
+## Prerequisites
 
 - **Rust** (1.68+ recommended)
 - **Cargo** (installed alongside Rust)
@@ -38,22 +18,22 @@ This project is a **Rust** + **Actix-Web** backend that demonstrates:
   cargo install sqlx-cli
   ```
 
-## 2. Project Setup
+## Project Setup
 
-Clone the repository:
+1. Clone the repository:
 
-```sh
-git clone <your-repo-url>
-cd rust-actix-multiplayer-backend
-```
+   ```sh
+   git clone <your-repo-url>
+   cd rust-actix-multiplayer-backend
+   ```
 
-Install required crates automatically when building:
+2. Install required crates:
 
-```sh
-cargo build
-```
+   ```sh
+   cargo build
+   ```
 
-## 3. Environment Variables
+## Environment Variables
 
 Create a `.env` file in the project root (same folder as `Cargo.toml`) with the following variables:
 
@@ -65,39 +45,35 @@ JWT_SECRET=MySuperSecretKey
 - `DATABASE_URL` points to your Postgres database.
 - `JWT_SECRET` is the secret used to sign and verify JWT tokens.
 
-**Note:** You can change these values as needed (e.g. different DB user/password, random JWT secret, etc.).
+## Running Migrations
 
-## 4. Running Migrations
+1. **Initialize your database:**
 
-We use SQLx migrations to create and alter tables (users, refresh_tokens, etc.).
+   ```sh
+   createdb multiplayer_demo  # or do so inside psql
+   ```
 
-### Initialize your database (if not done yet):
+2. **Crate migrations:**
 
-```sh
-createdb multiplayer_demo  # or do so inside psql
-```
+   ```sh
+   sqlx migrate add -r create_users_table
+   ```
 
-### Create a new migration like this:
+3. **Run migrations:**
 
-```sh
-sqlx migrate add -r create_users_table
-```
+   ```sh
+   sqlx migrate run
+   ```
 
-### Run migrations:
+   This applies all migrations in the `migrations/` folder to your `multiplayer_demo` database.
 
-```sh
-sqlx migrate run
-```
+4. **Prepare the database for compiling queries:**
 
-This applies all migrations in the `migrations/` folder to your `multiplayer_demo` database.
+   ```sh
+   DATABASE_URL=postgres://admin:admin@localhost:5432/multiplayer_demo sqlx prepare
+   ```
 
-Prepare your database for compiling queries:
-
-```sh
-DATABASE_URL=postgres://admin:admin@localhost:5432/multiplayer_demo sqlx prepare
-```
-
-## 5. Building & Running
+## Building & Running
 
 Start the Actix server locally on `127.0.0.1:8080`:
 
@@ -112,9 +88,9 @@ Finished dev [unoptimized + debuginfo] target(s) in ...
 Running `target/debug/rust-actix-multiplayer-backend`
 ```
 
-## 6. Endpoints & Usage
+## Endpoints & Usage
 
-### 6.1. Register
+### Register User
 
 **POST** `/register`
 
@@ -128,11 +104,11 @@ Running `target/debug/rust-actix-multiplayer-backend`
 }
 ```
 
-**Action:** Creates a new user (with Argon2-hashed password), returns a short-lived JWT + user info.
+**Action:** Creates a new user and returns a JWT with user info.
 
 ---
 
-### 6.2. Login
+### Login
 
 **POST** `/login`
 
@@ -145,11 +121,11 @@ Running `target/debug/rust-actix-multiplayer-backend`
 }
 ```
 
-**Action:** Verifies user credentials, returns a new short-lived access token + a refresh token + user info.
+**Action:** Verifies user credentials and returns access & refresh tokens.
 
 ---
 
-### 6.3. Get Current User (`/me`)
+### Get Current User
 
 **GET** `/me`
 
@@ -159,13 +135,13 @@ Running `target/debug/rust-actix-multiplayer-backend`
 Authorization: Bearer <access_token>
 ```
 
-**Action:** Decodes the token, verifies the user from the database, returns user data if valid. Otherwise, 401 Unauthorized.
+**Action:** Decodes the token and returns user data if valid.
 
 ---
 
-### 6.4. Refresh Token
+### Refresh Token
 
-**POST** `/refresh` (if you implemented this)
+**POST** `/refresh`
 
 **Body:**
 
@@ -175,79 +151,125 @@ Authorization: Bearer <access_token>
 }
 ```
 
-**Action:** Checks the `refresh_tokens` table for this token, ensures not expired, returns new short-lived `access_token`.
+**Action:** Returns a new short-lived `access_token`.
 
 ---
 
-### 6.5. SSE
+### Create Fleet
 
-**GET** `/sse`
+**POST** `/create_fleet`
 
-**Action:** Provides a continuous server-sent events stream (infinite counting or your custom logic).
+**Body:**
+
+```json
+{
+  "username": "jane@localhost",
+  "ships": 50,
+  "fighters": 100,
+  "bombers": 30
+}
+```
+
+**Action:** Creates a fleet for the specified user.
 
 ---
 
-## 7. Example Curl Commands
+### Battle Simulation
 
-### Register:
+**POST** `/simulate_battle`
+
+**Body:**
+
+```json
+{
+  "player_a": "rootster@localhost",
+  "player_b": "john@localhost",
+  "seed": 42
+}
+```
+
+**Action:** Simulates a battle between two players and updates their fleets.
+
+---
+
+### Inbox
+
+**POST** `/actor/{username}/inbox`
+
+**Body (BattleRequest Example):**
+
+```json
+{
+  "type": "BattleRequest",
+  "actor": "rootster@localhost",
+  "object": "john@localhost",
+  "fleet": {
+    "ships": 100,
+    "fighters": 90,
+    "bombers": 80
+  },
+  "seed": 42
+}
+```
+
+**Action:** Processes a battle request or other activity.
+
+---
+
+### Outbox
+
+**GET** `/actor/{username}/outbox`
+
+**Action:** Fetches all activities sent by the user.
+
+---
+
+## Example Curl Commands
+
+### Register User
 
 ```sh
 curl -X POST http://127.0.0.1:8080/register \
      -H "Content-Type: application/json" \
-     -d '{"username":"rootster","email":"rootster@example.com","password":"ToorToor"}'
+     -d '{"username":"jane","email":"jane@example.com","password":"password123"}'
 ```
 
-Returns:
-
-```json
-{"token":"<JWT>", "user": {...}}
-```
-
----
-
-### Login:
+### Create Fleet
 
 ```sh
-curl -X POST http://127.0.0.1:8080/login \
+curl -X POST http://127.0.0.1:8080/create_fleet \
      -H "Content-Type: application/json" \
-     -d '{"email":"rootster@example.com","password":"ToorToor"}'
+     -d '{"username":"jane@localhost","ships":50,"fighters":100,"bombers":30}'
 ```
 
-Returns:
-
-```json
-{"access_token":"<short-lived-JWT>","refresh_token":"<long-string>", "user": {...}}
-```
-
----
-
-### Get Current User:
+### Simulate Battle
 
 ```sh
-curl http://127.0.0.1:8080/me \
-     -H "Authorization: Bearer <ACCESS_TOKEN_FROM_LOGIN>"
-```
-
-Returns user info if valid token, otherwise Invalid token.
-
----
-
-### Refresh Token (if used):
-
-```sh
-curl -X POST http://127.0.0.1:8080/refresh \
+curl -X POST http://127.0.0.1:8080/simulate_battle \
      -H "Content-Type: application/json" \
-     -d '{"refresh_token":"<LONG_RANDOM_STRING_FROM_LOGIN>"}'
+     -d '{"player_a":"rootster","player_b":"jane","seed":42}'
 ```
 
-Returns new `access_token` and optionally a new `refresh_token`.
-
----
-
-### SSE:
+### Inbox
 
 ```sh
-curl -N http://127.0.0.1:8080/sse
+curl -X POST http://127.0.0.1:8080/actor/jane@localhost/inbox \
+     -H "Content-Type: application/json" \
+     -d '{
+       "type": "BattleRequest",
+       "actor": "rootster@localhost",
+       "object": "jane@localhost",
+       "fleet": {
+           "ships": 100,
+           "fighters": 90,
+           "bombers": 80
+       },
+       "seed": 42
+     }'
 ```
 
-Streams events every couple seconds (e.g. `data: 0`, `data: 1`, etc.).
+### Outbox
+
+```sh
+curl -X GET http://127.0.0.1:8080/actor/jane@localhost/outbox
+```
