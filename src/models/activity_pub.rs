@@ -1,4 +1,4 @@
-use crate::services::simulator_service::Fleet;
+use crate::handlers::simulator::Fleet;
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize)]

@@ -1,7 +1,7 @@
 use std::fmt::Debug;
 
+use crate::handlers::simulator::{BattleRequestActivity, handle_battle_request};
 use crate::models::activity_pub::Activity;
-use crate::services::simulator_service::{BattleRequestActivity, handle_battle_request};
 use actix_web::{HttpResponse, Responder, web};
 use reqwest::Client;
 use sqlx::PgPool;

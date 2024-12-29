@@ -1,12 +1,12 @@
 mod auth;
 mod config;
+mod handlers;
 mod models;
-mod services;
 
 use actix_web::{App, HttpServer, web};
 use config::Config;
-use services::activity_pub_service::{inbox, outbox};
-use services::webfinger_service::webfinger;
+use handlers::activity_pub::{inbox, outbox};
+use handlers::webfinger::webfinger;
 use sqlx::PgPool;
 
 #[actix_web::main]
@@ -25,12 +25,12 @@ async fn main() -> std::io::Result<()> {
             // also store the JWT secret if you want via app data
             .app_data(web::Data::new(jwt_secret.clone()))
             // user routes (register, login, me) from user_handlers
-            .configure(services::user_handlers::config)
-            .configure(services::simulator_service::config)
-            .configure(services::fleet_service::config)
+            .configure(handlers::user::config)
+            .configure(handlers::simulator::config)
+            .configure(handlers::fleet::config)
             // SSE + WebSockets
-            .route("/sse", web::get().to(services::sse::sse_endpoint))
-            .route("/ws/", web::get().to(services::websocket::ws_index))
+            .route("/sse", web::get().to(handlers::sse::sse_endpoint))
+            .route("/ws/", web::get().to(handlers::websocket::ws_index))
             // .route("/actor/{username}/inbox", web::post().to(inbox))
             // .route("/actor/{username}/outbox", web::get().to(outbox))
             .route("/actor/{username}/inbox", web::post().to(inbox))
@@ -38,7 +38,7 @@ async fn main() -> std::io::Result<()> {
             .route("/.well-known/webfinger", web::get().to(webfinger))
             .route(
                 "/battle-request/",
-                web::post().to(services::simulator_service::send_battle_request_handler),
+                web::post().to(handlers::simulator::send_battle_request_handler),
             )
     })
     // .bind(("127.0.0.1", 8080))?
