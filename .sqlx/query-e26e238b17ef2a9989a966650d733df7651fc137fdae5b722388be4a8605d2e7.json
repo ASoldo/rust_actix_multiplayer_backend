@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT recipient, content, created_at FROM messages WHERE sender = $1",
+  "query": "SELECT recipient, content, created_at, activity_type FROM messages WHERE sender = $1",
   "describe": {
     "columns": [
       {
@@ -17,6 +17,11 @@
         "ordinal": 2,
         "name": "created_at",
         "type_info": "Timestamp"
+      },
+      {
+        "ordinal": 3,
+        "name": "activity_type",
+        "type_info": "Text"
       }
     ],
     "parameters": {
@@ -27,8 +32,9 @@
     "nullable": [
       false,
       false,
-      true
+      true,
+      false
     ]
   },
-  "hash": "9917e238c673f9c936f714dfe126acda339deff4b034ad4bfb466df0b36207ef"
+  "hash": "e26e238b17ef2a9989a966650d733df7651fc137fdae5b722388be4a8605d2e7"
 }
