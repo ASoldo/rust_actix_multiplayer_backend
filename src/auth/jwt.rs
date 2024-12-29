@@ -1,4 +1,4 @@
-// src/jwt.rs
+// src/auth/jwt.rs
 use chrono::{Duration, Utc};
 use jsonwebtoken::{Algorithm, DecodingKey, EncodingKey, Header, Validation, decode, encode};
 use serde::{Deserialize, Serialize};
@@ -6,7 +6,8 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Claims {
     pub sub: String, // user ID (UUID as string) or email
-    pub exp: usize,  // expiration
+    // pub role: String, // role: String
+    pub exp: usize, // expiration
 }
 
 /// Generate a JWT token valid for 60 minutes
@@ -18,6 +19,7 @@ pub fn generate_jwt(user_id: &str, secret: &str) -> String {
 
     let claims = Claims {
         sub: user_id.to_owned(),
+        // role: role.to_owned(),
         exp: expiration,
     };
 

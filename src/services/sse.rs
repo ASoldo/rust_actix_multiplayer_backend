@@ -1,5 +1,3 @@
-// src/sse.rs
-
 use actix_web::{HttpRequest, HttpResponse, Responder};
 use bytes::Bytes;
 use futures_util::stream::unfold;

@@ -1,7 +1,5 @@
-// user_handlers.rs (example)
-use crate::auth::{hash_password, verify_password};
-use crate::jwt::{decode_jwt, generate_jwt};
-use crate::models::User;
+use crate::auth;
+use crate::models::user::User;
 use actix_web::{Error, HttpRequest, HttpResponse, web};
 use chrono::{Duration, Utc};
 use rand::RngCore; // for generating random tokens
@@ -30,7 +28,7 @@ pub async fn register_user(
     pool: web::Data<PgPool>,
     form: web::Json<RegisterDto>,
 ) -> Result<HttpResponse, Error> {
-    let hashed = hash_password(&form.password);
+    let hashed = auth::password::hash_password(&form.password);
 
     // Use explicit casts for returning columns:
     // e.g.  id as "id: Uuid", created_at as "created_at: chrono::DateTime<Utc>"
@@ -54,7 +52,7 @@ pub async fn register_user(
     .fetch_one(pool.get_ref())
     .await
     .map_err(|e| actix_web::error::ErrorInternalServerError(e.to_string()))?; // Generate JWT or do other logic...
-    let token = generate_jwt(&inserted_user.id.to_string(), "secret");
+    let token = auth::jwt::generate_jwt(&inserted_user.id.to_string(), "secret");
 
     Ok(HttpResponse::Ok().json(serde_json::json!({
         "user": {
@@ -98,12 +96,12 @@ pub async fn login_user(
     .map_err(|_| actix_web::error::ErrorUnauthorized("Invalid credentials"))?;
 
     // 2) Check password
-    if !verify_password(&user.password, &form.password) {
+    if !auth::password::verify_password(&user.password, &form.password) {
         return Err(actix_web::error::ErrorUnauthorized("Invalid credentials"));
     }
 
     // 3) Generate short-lived access token
-    let access_token = crate::jwt::generate_jwt(&user.id.to_string(), &jwt_secret);
+    let access_token = auth::jwt::generate_jwt(&user.id.to_string(), &jwt_secret);
 
     // 4) Generate refresh token
     let refresh_str = generate_refresh_token();
@@ -163,7 +161,7 @@ pub async fn get_me(
 
     // 2) Decode the JWT
     // Instead of a hard-coded "secret", use the real secret from .env
-    let claims = decode_jwt(token, &jwt_secret)
+    let claims = auth::jwt::decode_jwt(token, &jwt_secret)
         .map_err(|_| actix_web::error::ErrorUnauthorized("Invalid token"))?;
 
     // 3) Extract user ID from claims
@@ -243,7 +241,7 @@ pub async fn refresh_token(
     }
 
     // 3) generate a new short-lived access token
-    let new_access = crate::jwt::generate_jwt(&row.user_id.to_string(), &jwt_secret);
+    let new_access = auth::jwt::generate_jwt(&row.user_id.to_string(), &jwt_secret);
 
     // 4) optional: rotate refresh token or keep the same. For simplicity, let's keep it the same.
 

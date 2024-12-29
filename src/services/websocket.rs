@@ -1,5 +1,3 @@
-// src/websocket.rs
-
 use actix::prelude::*;
 use actix_web::{Error, HttpRequest, HttpResponse, web};
 use actix_web_actors::ws;
