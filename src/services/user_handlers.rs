@@ -30,6 +30,9 @@ pub async fn register_user(
 ) -> Result<HttpResponse, Error> {
     let hashed = auth::password::hash_password(&form.password);
 
+    // Append domain to the username
+    let username_with_domain = format!("{}@localhost", form.username);
+
     // Use explicit casts for returning columns:
     // e.g.  id as "id: Uuid", created_at as "created_at: chrono::DateTime<Utc>"
     let inserted_user = sqlx::query_as!(
@@ -45,13 +48,14 @@ pub async fn register_user(
       created_at as "created_at!: chrono::DateTime<Utc>"
     "#,
         Uuid::new_v4(),
-        form.username,
+        username_with_domain,
         form.email,
         hashed
     )
     .fetch_one(pool.get_ref())
     .await
     .map_err(|e| actix_web::error::ErrorInternalServerError(e.to_string()))?; // Generate JWT or do other logic...
+
     let token = auth::jwt::generate_jwt(&inserted_user.id.to_string(), "secret");
 
     Ok(HttpResponse::Ok().json(serde_json::json!({

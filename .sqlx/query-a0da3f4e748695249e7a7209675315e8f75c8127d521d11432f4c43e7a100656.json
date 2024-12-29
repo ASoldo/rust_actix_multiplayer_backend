@@ -1,0 +1,34 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT ships, fighters, bombers \n         FROM fleets \n         WHERE user_id = (SELECT id FROM users WHERE username = $1)",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "ships",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 1,
+        "name": "fighters",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 2,
+        "name": "bombers",
+        "type_info": "Int4"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "a0da3f4e748695249e7a7209675315e8f75c8127d521d11432f4c43e7a100656"
+}
