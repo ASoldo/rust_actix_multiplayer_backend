@@ -46,35 +46,51 @@ pub fn simulate_battle(mut player_a: Fleet, mut player_b: Fleet, seed: u64) -> B
         let damage_to_a = rng.gen_range(1..10);
 
         // Apply damage to Player B
-        let b_ships = player_b.ships.unwrap_or(0);
-        player_b.ships = Some(b_ships.saturating_sub(damage_to_b));
+        let mut remaining_damage = damage_to_b;
 
-        if damage_to_b > b_ships {
-            let remaining_damage = damage_to_b - b_ships;
-            let b_fighters = player_b.fighters.unwrap_or(0);
-            player_b.fighters = Some(b_fighters.saturating_sub(remaining_damage));
+        if let Some(b_ships) = player_b.ships {
+            let effective_damage = b_ships.min(remaining_damage);
+            player_b.ships = Some(b_ships - effective_damage);
+            remaining_damage -= effective_damage;
         }
 
-        if damage_to_b > b_ships + player_b.fighters.unwrap_or(0) {
-            let remaining_damage = damage_to_b - b_ships - player_b.fighters.unwrap_or(0);
-            let b_bombers = player_b.bombers.unwrap_or(0);
-            player_b.bombers = Some(b_bombers.saturating_sub(remaining_damage));
+        if remaining_damage > 0 {
+            if let Some(b_fighters) = player_b.fighters {
+                let effective_damage = b_fighters.min(remaining_damage);
+                player_b.fighters = Some(b_fighters - effective_damage);
+                remaining_damage -= effective_damage;
+            }
+        }
+
+        if remaining_damage > 0 {
+            if let Some(b_bombers) = player_b.bombers {
+                let effective_damage = b_bombers.min(remaining_damage);
+                player_b.bombers = Some(b_bombers - effective_damage);
+            }
         }
 
         // Apply damage to Player A
-        let a_ships = player_a.ships.unwrap_or(0);
-        player_a.ships = Some(a_ships.saturating_sub(damage_to_a));
+        let mut remaining_damage = damage_to_a;
 
-        if damage_to_a > a_ships {
-            let remaining_damage = damage_to_a - a_ships;
-            let a_fighters = player_a.fighters.unwrap_or(0);
-            player_a.fighters = Some(a_fighters.saturating_sub(remaining_damage));
+        if let Some(a_ships) = player_a.ships {
+            let effective_damage = a_ships.min(remaining_damage);
+            player_a.ships = Some(a_ships - effective_damage);
+            remaining_damage -= effective_damage;
         }
 
-        if damage_to_a > a_ships + player_a.fighters.unwrap_or(0) {
-            let remaining_damage = damage_to_a - a_ships - player_a.fighters.unwrap_or(0);
-            let a_bombers = player_a.bombers.unwrap_or(0);
-            player_a.bombers = Some(a_bombers.saturating_sub(remaining_damage));
+        if remaining_damage > 0 {
+            if let Some(a_fighters) = player_a.fighters {
+                let effective_damage = a_fighters.min(remaining_damage);
+                player_a.fighters = Some(a_fighters - effective_damage);
+                remaining_damage -= effective_damage;
+            }
+        }
+
+        if remaining_damage > 0 {
+            if let Some(a_bombers) = player_a.bombers {
+                let effective_damage = a_bombers.min(remaining_damage);
+                player_a.bombers = Some(a_bombers - effective_damage);
+            }
         }
     }
 
@@ -105,28 +121,34 @@ pub async fn battle_handler(
     req: web::Json<BattleRequest>,
     pool: web::Data<PgPool>,
 ) -> impl Responder {
-    // Fetch fleets for both players
-
+    // Fetch fleets for both players by joining `fleets` and `users` tables
     let player_a_fleet = sqlx::query_as!(
         Fleet,
-        "SELECT ships, fighters, bombers FROM fleets WHERE username = $1",
+        r#"
+        SELECT f.ships, f.fighters, f.bombers 
+        FROM fleets f
+        INNER JOIN users u ON f.user_id = u.id
+        WHERE u.username = $1
+        "#,
         req.player_a
     )
     .fetch_one(pool.get_ref())
     .await
-    .expect("Player A not found");
-
-    // Use `unwrap_or(0)` for calculations if needed
-    let total_ships = player_a_fleet.ships.unwrap_or(0);
+    .expect("Player A fleet not found");
 
     let player_b_fleet = sqlx::query_as!(
         Fleet,
-        "SELECT ships, fighters, bombers FROM users WHERE username = $1",
+        r#"
+        SELECT f.ships, f.fighters, f.bombers 
+        FROM fleets f
+        INNER JOIN users u ON f.user_id = u.id
+        WHERE u.username = $1
+        "#,
         req.player_b
     )
     .fetch_one(pool.get_ref())
     .await
-    .expect("Player B not found");
+    .expect("Player B fleet not found");
 
     // Simulate the battle
     let outcome = simulate_battle(player_a_fleet, player_b_fleet, req.seed);

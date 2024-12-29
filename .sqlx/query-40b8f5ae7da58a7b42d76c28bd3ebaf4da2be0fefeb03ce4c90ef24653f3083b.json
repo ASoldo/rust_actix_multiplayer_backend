@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT ships, fighters, bombers FROM fleets WHERE username = $1",
+  "query": "\n        SELECT f.ships, f.fighters, f.bombers \n        FROM fleets f\n        INNER JOIN users u ON f.user_id = u.id\n        WHERE u.username = $1\n        ",
   "describe": {
     "columns": [
       {
@@ -30,5 +30,5 @@
       true
     ]
   },
-  "hash": "673618cc7c1b2952fcf39f99841c7190ec1786ac544acfcdddc9c75bc4e21949"
+  "hash": "40b8f5ae7da58a7b42d76c28bd3ebaf4da2be0fefeb03ce4c90ef24653f3083b"
 }

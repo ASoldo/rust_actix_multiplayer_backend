@@ -27,6 +27,7 @@ async fn main() -> std::io::Result<()> {
             // user routes (register, login, me) from user_handlers
             .configure(services::user_handlers::config)
             .configure(services::simulator_service::config)
+            .configure(services::fleet_service::config)
             // SSE + WebSockets
             .route("/sse", web::get().to(services::sse::sse_endpoint))
             .route("/ws/", web::get().to(services::websocket::ws_index))
