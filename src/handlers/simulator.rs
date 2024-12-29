@@ -296,7 +296,7 @@ pub async fn handle_battle_request(
     Ok(HttpResponse::Ok().json(outcome))
 }
 
-async fn update_fleet(username: String, updated_fleet: Fleet, pool: web::Data<PgPool>) {
+async fn _update_fleet(username: String, updated_fleet: Fleet, pool: web::Data<PgPool>) {
     sqlx::query!(
         "UPDATE fleets SET ships = $1, fighters = $2, bombers = $3 WHERE user_id = (SELECT id FROM users WHERE username = $4)",
         updated_fleet.ships,
@@ -307,20 +307,6 @@ async fn update_fleet(username: String, updated_fleet: Fleet, pool: web::Data<Pg
     .execute(pool.get_ref())
     .await
     .expect("Failed to update fleet");
-}
-
-async fn send_activity(
-    activity: BattleResultActivity,
-    target_inbox: &str,
-) -> Result<(), reqwest::Error> {
-    let client = Client::new();
-    client
-        .post(format!("{}/inbox", target_inbox))
-        .header("Content-Type", "application/activity+json")
-        .json(&activity)
-        .send()
-        .await?;
-    Ok(())
 }
 
 pub async fn send_battle_request(

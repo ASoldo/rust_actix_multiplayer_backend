@@ -1,12 +1,15 @@
 mod auth;
 mod config;
 mod handlers;
+mod middleware;
 mod models;
 
 use actix_web::{App, HttpServer, web};
+use actix_web_httpauth::middleware::HttpAuthentication;
 use config::Config;
 use handlers::activity_pub::{inbox, outbox};
 use handlers::webfinger::webfinger;
+use middleware::jwt_middleware::jwt_middleware;
 use sqlx::PgPool;
 
 #[actix_web::main]
@@ -31,14 +34,16 @@ async fn main() -> std::io::Result<()> {
             // SSE + WebSockets
             .route("/sse", web::get().to(handlers::sse::sse_endpoint))
             .route("/ws/", web::get().to(handlers::websocket::ws_index))
-            // .route("/actor/{username}/inbox", web::post().to(inbox))
-            // .route("/actor/{username}/outbox", web::get().to(outbox))
-            .route(
-                "/actor/{username}",
-                web::get().to(handlers::activity_pub::get_actor),
+            .service(
+                web::scope("/actor")
+                    .wrap(HttpAuthentication::bearer(jwt_middleware))
+                    .route(
+                        "/{username}",
+                        web::get().to(handlers::activity_pub::get_actor),
+                    )
+                    .route("/{username}/inbox", web::post().to(inbox))
+                    .route("/{username}/outbox", web::get().to(outbox)),
             )
-            .route("/actor/{username}/inbox", web::post().to(inbox))
-            .route("/actor/{username}/outbox", web::get().to(outbox))
             .route("/.well-known/webfinger", web::get().to(webfinger))
             .route(
                 "/battle-request/",
