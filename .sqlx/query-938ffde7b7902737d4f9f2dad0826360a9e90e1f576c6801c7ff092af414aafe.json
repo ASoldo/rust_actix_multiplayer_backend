@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT ships, fighters, bombers \n         FROM fleets \n         WHERE user_id = (SELECT id FROM users WHERE username = $1)",
+  "query": "SELECT ships, fighters, bombers \n         FROM fleets \n         WHERE user_id = $1",
   "describe": {
     "columns": [
       {
@@ -21,7 +21,7 @@
     ],
     "parameters": {
       "Left": [
-        "Text"
+        "Uuid"
       ]
     },
     "nullable": [
@@ -30,5 +30,5 @@
       true
     ]
   },
-  "hash": "a0da3f4e748695249e7a7209675315e8f75c8127d521d11432f4c43e7a100656"
+  "hash": "938ffde7b7902737d4f9f2dad0826360a9e90e1f576c6801c7ff092af414aafe"
 }

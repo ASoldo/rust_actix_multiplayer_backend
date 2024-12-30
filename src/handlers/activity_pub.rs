@@ -5,12 +5,13 @@ use crate::models::activity_pub::Activity;
 use actix_web::{HttpResponse, Responder, web};
 use serde_json::json;
 use sqlx::PgPool;
+use sqlx::types::Uuid;
 
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, sqlx::FromRow, Debug)]
 struct SentMessage {
-    recipient: String,
+    recipient: Uuid,
     content: String,
     created_at: Option<String>, // Store the formatted date as a string
     activity_type: String,
@@ -106,30 +107,43 @@ pub async fn inbox(
 pub async fn outbox(username: web::Path<String>, pool: web::Data<PgPool>) -> impl Responder {
     log::info!("Fetching outbox for username: {}", username);
 
-    let rows = sqlx::query!(
-        "SELECT recipient, content, created_at, activity_type FROM messages WHERE sender = $1",
-        username.into_inner()
+    // Fetch the user's ID from the username
+    let user_id_result = sqlx::query_scalar!(
+        "SELECT id FROM users WHERE username = $1",
+        username.as_str()
     )
-    .fetch_all(pool.get_ref())
+    .fetch_optional(pool.get_ref())
     .await;
 
-    match rows {
-        Ok(rows) => {
-            log::info!("Fetched {} messages from outbox.", rows.len());
-            let messages: Vec<SentMessage> = rows
-                .into_iter()
-                .map(|row| SentMessage {
-                    recipient: row.recipient,
-                    content: row.content,
-                    created_at: row.created_at.map(|dt| dt.to_string()),
-                    activity_type: row.activity_type,
-                })
-                .collect();
-            HttpResponse::Ok().json(messages)
+    if let Ok(Some(user_id)) = user_id_result {
+        let rows = sqlx::query!(
+            "SELECT recipient, content, created_at, activity_type FROM messages WHERE sender = $1",
+            user_id
+        )
+        .fetch_all(pool.get_ref())
+        .await;
+
+        match rows {
+            Ok(rows) => {
+                log::info!("Fetched {} messages from outbox.", rows.len());
+                let messages: Vec<SentMessage> = rows
+                    .into_iter()
+                    .map(|row| SentMessage {
+                        recipient: row.recipient,
+                        content: row.content,
+                        created_at: row.created_at.map(|dt| dt.to_string()),
+                        activity_type: row.activity_type,
+                    })
+                    .collect();
+                HttpResponse::Ok().json(messages)
+            }
+            Err(e) => {
+                log::error!("Error fetching outbox: {:?}", e);
+                HttpResponse::InternalServerError().body("Failed to fetch outbox")
+            }
         }
-        Err(e) => {
-            log::error!("Error fetching outbox: {:?}", e);
-            HttpResponse::InternalServerError().body("Failed to fetch outbox")
-        }
+    } else {
+        log::error!("User with username '{}' not found.", username);
+        HttpResponse::NotFound().body("User not found")
     }
 }

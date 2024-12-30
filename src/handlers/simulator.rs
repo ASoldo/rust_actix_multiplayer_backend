@@ -5,13 +5,14 @@ use rand_pcg::Pcg64;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
+use sqlx::types::Uuid;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct BattleRequestActivity {
     #[serde(rename = "type")]
     pub activity_type: String,
-    pub actor: String,
-    pub target: String,
+    pub actor: Uuid,
+    pub target: Uuid,
     pub fleet: Fleet,
     pub seed: u64,
 }
@@ -20,8 +21,8 @@ pub struct BattleRequestActivity {
 pub struct BattleResultActivity {
     #[serde(rename = "type")]
     pub activity_type: String,
-    pub actor: String,
-    pub target: String,
+    pub actor: Uuid,
+    pub target: Uuid,
     pub result: BattleOutcome,
 }
 
@@ -228,8 +229,8 @@ pub async fn handle_battle_request(
         Fleet,
         "SELECT ships, fighters, bombers 
          FROM fleets 
-         WHERE user_id = (SELECT id FROM users WHERE username = $1)",
-        activity.actor
+         WHERE user_id = $1",
+        activity.actor // Use actor UUID directly
     )
     .fetch_one(pool.get_ref())
     .await;
@@ -244,8 +245,8 @@ pub async fn handle_battle_request(
         Fleet,
         "SELECT ships, fighters, bombers 
          FROM fleets 
-         WHERE user_id = (SELECT id FROM users WHERE username = $1)",
-        activity.target
+         WHERE user_id = $1",
+        activity.target // Use target UUID directly
     )
     .fetch_one(pool.get_ref())
     .await;
@@ -262,11 +263,11 @@ pub async fn handle_battle_request(
     sqlx::query!(
         "UPDATE fleets 
          SET ships = $1, fighters = $2, bombers = $3 
-         WHERE user_id = (SELECT id FROM users WHERE username = $4)",
+         WHERE user_id = $4",
         outcome.player_a_remaining.ships,
         outcome.player_a_remaining.fighters,
         outcome.player_a_remaining.bombers,
-        activity.actor
+        activity.actor // Use actor UUID directly
     )
     .execute(pool.get_ref())
     .await
@@ -279,11 +280,11 @@ pub async fn handle_battle_request(
     sqlx::query!(
         "UPDATE fleets 
          SET ships = $1, fighters = $2, bombers = $3 
-         WHERE user_id = (SELECT id FROM users WHERE username = $4)",
+         WHERE user_id = $4",
         outcome.player_b_remaining.ships,
         outcome.player_b_remaining.fighters,
         outcome.player_b_remaining.bombers,
-        activity.target
+        activity.target // Use target UUID directly
     )
     .execute(pool.get_ref())
     .await
@@ -332,7 +333,7 @@ pub async fn send_battle_request_handler(
         Fleet,
         "SELECT ships, fighters, bombers 
          FROM fleets 
-         WHERE user_id = (SELECT id FROM users WHERE username = $1)",
+         WHERE user_id = $1",
         activity.actor
     )
     .fetch_one(pool.get_ref())

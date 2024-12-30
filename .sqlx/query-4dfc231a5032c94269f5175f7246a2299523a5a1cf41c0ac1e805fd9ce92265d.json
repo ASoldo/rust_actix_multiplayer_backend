@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE fleets \n         SET ships = $1, fighters = $2, bombers = $3 \n         WHERE user_id = $4",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4",
+        "Int4",
+        "Int4",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "4dfc231a5032c94269f5175f7246a2299523a5a1cf41c0ac1e805fd9ce92265d"
+}
